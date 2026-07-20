@@ -1,0 +1,43 @@
+# Render deployment manifest for BOUAN'O DOUMAINTANG
+# Edit values (service names, branch) as needed before importing into Render.
+services:
+  - type: web
+    name: bouano-backend
+    env: python
+    region: oregon
+    branch: main
+    plan: free
+    buildCommand: |
+      python -m pip install --upgrade pip
+      pip install -r backend/requirements.txt
+      cd backend
+      python manage.py migrate --noinput
+      python manage.py collectstatic --noinput
+    startCommand: gunicorn bouano.wsgi --workers 3 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: bouano.settings
+
+  - type: static
+    name: bouano-frontend
+    env: static
+    region: oregon
+    branch: main
+    plan: free
+    buildCommand: |
+      cd frontend
+      npm ci
+      npm run build
+    publishPath: frontend/dist
+
+databases:
+  - name: bouano-db
+    plan: free
+    postgresVersion: 14
+
+# Notes:
+# - After importing this manifest in Render, set the environment variables for the backend
+#   (DJANGO_SECRET_KEY, DEBUG=False, DATABASE_URL, CAMPAY_*, CORS_ALLOWED_ORIGINS, etc.)
+# - For media storage, prefer Cloudinary or S3; set related env vars (e.g. CLOUDINARY_URL).
+# - Update 'region' to your preferred Render region.
+# - The static site build uses the frontend folder; Render will serve the generated files.
