@@ -24,5 +24,9 @@ RUN python manage.py collectstatic --noinput || true
 # Port (Railway injecte $PORT à l'exécution)
 ENV PORT=8000
 
+# Script de démarrage pour expansion propre de $PORT
+COPY backend/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Commande de démarrage
-CMD ["sh", "-c", "gunicorn bouano.wsgi --workers 2 --bind 0.0.0.0:$PORT"]
+CMD ["/app/start.sh"]
