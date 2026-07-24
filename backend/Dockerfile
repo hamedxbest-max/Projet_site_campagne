@@ -25,4 +25,4 @@ RUN python manage.py collectstatic --noinput || true
 ENV PORT=8000
 
 # Commande de démarrage
-CMD ["gunicorn", "bouano.wsgi", "--workers", "2", "--bind", "0.0.0.0:${PORT}"]
+CMD ["sh", "-c", "gunicorn bouano.wsgi --workers 2 --bind 0.0.0.0:$PORT"]
