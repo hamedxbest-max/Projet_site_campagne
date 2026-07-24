@@ -26,16 +26,3 @@ ENV PORT=8000
 
 # Commande de démarrage
 CMD ["gunicorn", "bouano.wsgi", "--workers", "2", "--bind", "0.0.0.0:${PORT}"]
-FROM python:3.12-slim
-
-WORKDIR /app
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-COPY requirements.txt ./
-RUN python -m pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
-
-COPY . ./
-
-CMD ["gunicorn", "bouano.wsgi", "--bind", "0.0.0.0:8000", "--workers", "2"]
