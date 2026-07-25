@@ -28,9 +28,7 @@ export async function createStudentRegistration(payload, photoFile = null) {
       if (value !== '' && value != null) formData.append(key, value);
     });
     formData.append('photo', photoFile);
-    const { data } = await api.post('/contributions/student/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const { data } = await api.post('/contributions/student/', formData);
     return data;
   }
   const { data } = await api.post('/contributions/student/', payload);
