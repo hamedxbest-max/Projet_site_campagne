@@ -5,9 +5,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# dépendances système nécessaires (psycopg2, build tools)
+# dépendances système nécessaires (psycopg2, Pillow, build tools)
 RUN apt-get update && \
-    apt-get install -y build-essential libpq-dev curl && \
+    apt-get install -y build-essential libpq-dev curl libjpeg-dev zlib1g-dev libtiff-dev libopenjp2-7-dev libfreetype6-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Copier requirements et l'installer
