@@ -65,7 +65,6 @@ export async function uploadPaymentProof(contributionId, file) {
   const { data } = await api.post(
     `/contributions/${contributionId}/upload-proof/`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return data;
 }
