@@ -68,7 +68,7 @@ if DATABASE_URL:
             'PORT': db.port or '5432',
         }
     }
-elif config('USE_SQLITE', default=True, cast=bool):
+elif config('USE_SQLITE', default=False, cast=bool):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-<<<<<<< HEAD
 /** Normalise l'URL API (Vercel : toujours se terminer par /api). */
 function normalizeApiBase(raw) {
   if (!raw || !String(raw).trim()) {
@@ -11,10 +10,6 @@ function normalizeApiBase(raw) {
 }
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE_URL);
-=======
-const API_BASE = 'https://projet-site-campagne.onrender.com/api';
-//const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://projet-site-campagne.onrender.com/api';
->>>>>>> 6ce7158e029add744ae1a298b2f96de6b4166255
 
 export const LIVE_POLL_MS = 8000;
 export const STUDENT_FEE = 20000;
