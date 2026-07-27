@@ -21,6 +21,16 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+/** Envoie FormData sans forcer application/json (sinon la photo échoue). */
+function postFormData(url, formData) {
+  return api.post(url, formData, {
+    transformRequest: [(data, headers) => {
+      delete headers['Content-Type'];
+      return data;
+    }],
+  });
+}
+
 export function authHeaders(token) {
   return { Authorization: `Bearer ${token}` };
 }
@@ -37,7 +47,7 @@ export async function createStudentRegistration(payload, photoFile = null) {
       if (value !== '' && value != null) formData.append(key, value);
     });
     formData.append('photo', photoFile);
-    const { data } = await api.post('/contributions/student/', formData);
+    const { data } = await postFormData('/contributions/student/', formData);
     return data;
   }
   const { data } = await api.post('/contributions/student/', payload);
@@ -71,7 +81,7 @@ export async function confirmCashPayment(contributionId) {
 export async function uploadPaymentProof(contributionId, file) {
   const formData = new FormData();
   formData.append('payment_proof', file);
-  const { data } = await api.post(
+  const { data } = await postFormData(
     `/contributions/${contributionId}/upload-proof/`,
     formData,
   );

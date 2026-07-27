@@ -41,6 +41,29 @@ const EMPTY_DONOR = {
   nom: '', telephone: '', email: '', methode_preferee: 'orange',
 };
 
+function formatApiError(err, fallback = 'Une erreur est survenue. Réessayez.') {
+  const data = err?.response?.data;
+  if (!data) {
+    if (!err?.response) {
+      return 'Impossible de joindre le backend. Vérifiez VITE_API_BASE_URL sur Vercel puis redéployez.';
+    }
+    if (err?.response?.status >= 500) {
+      return 'Erreur serveur (500). Vérifiez les logs Render et que les migrations sont appliquées.';
+    }
+    return fallback;
+  }
+  if (typeof data.detail === 'string') return data.detail;
+  if (Array.isArray(data.detail)) return data.detail.join(' ');
+  if (typeof data === 'object') {
+    const parts = Object.entries(data).flatMap(([field, msgs]) => {
+      const text = Array.isArray(msgs) ? msgs.join(' ') : String(msgs);
+      return field === 'non_field_errors' ? [text] : [`${field}: ${text}`];
+    });
+    if (parts.length) return parts.join(' · ');
+  }
+  return fallback;
+}
+
 export default function App() {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState('forward');
@@ -129,15 +152,7 @@ export default function App() {
       setPayMethod(studentForm.methode_preferee);
       goNext();
     } catch (err) {
-      const detail = err?.response?.data?.detail;
-      const status = err?.response?.status;
-      let message = detail;
-      if (!message && !err?.response) {
-        message = 'Impossible de joindre le backend. Sur Vercel, définissez VITE_API_BASE_URL=https://projet-site-campagne.onrender.com/api puis redéployez.';
-      } else if (!message && status >= 500) {
-        message = 'Erreur serveur (500). Vérifiez que les migrations sont appliquées sur Render.';
-      }
-      setPayError(message || 'Une erreur est survenue. Réessayez.');
+      setPayError(formatApiError(err));
     }
   }
 
@@ -151,15 +166,7 @@ export default function App() {
       setPayMethod(donorForm.methode_preferee);
       goNext();
     } catch (err) {
-      const detail = err?.response?.data?.detail;
-      const status = err?.response?.status;
-      let message = detail;
-      if (!message && !err?.response) {
-        message = 'Impossible de joindre le backend. Sur Vercel, définissez VITE_API_BASE_URL=https://projet-site-campagne.onrender.com/api puis redéployez.';
-      } else if (!message && status >= 500) {
-        message = 'Erreur serveur (500). Vérifiez que les migrations sont appliquées sur Render.';
-      }
-      setPayError(message || 'Une erreur est survenue. Réessayez.');
+      setPayError(formatApiError(err));
     }
   }
 
