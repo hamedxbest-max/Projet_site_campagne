@@ -35,7 +35,7 @@ def get_token():
     return resp.json()['token']
 
 
-def request_payment(amount, phone, description="Don BOUAN'O DOUMAINTANG"):
+def request_payment(amount, phone, description="Don BOUANE Ô DOUMAINTANG"):
     """
     amount: int, in FCFA
     phone: str, e.g. '+237690000000' or '690000000'

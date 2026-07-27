@@ -21,7 +21,7 @@ export default function SunProgress({ step, total }) {
               className="asseres-logo"
             />
           </div>
-          <p className="asseres-subtitle">ASSERES · Doumaintang · BOUAN&apos;O DOUMAINTANG</p>
+          <p className="asseres-subtitle">ASSERES · Doumaintang · BOUANE Ô DOUMAINTANG</p>
         </div>
         <div className="sun-progress-label">ÉTAPE {step}/{total}</div>
       </header>

@@ -17,7 +17,7 @@ export default function RegisteredStudentsList({ compact = false }) {
     return (
       <div className="students-empty">
         <GraduationCap size={28} strokeWidth={1.6} />
-        <p>Soyez le premier étudiant inscrit à BOUAN'O DOUMAINTANG !</p>
+        <p>Soyez le premier étudiant inscrit à BOUANE Ô DOUMAINTANG !</p>
         <LiveIndicator lastUpdated={lastUpdated} online={Boolean(lastUpdated)} />
       </div>
     );

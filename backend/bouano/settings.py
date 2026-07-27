@@ -4,7 +4,7 @@ from decouple import config, Csv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('DJANGO_SECRET_KEY', default='change-me-in-production')
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 INSTALLED_APPS = [
@@ -53,21 +53,39 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'bouano.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = config('DATABASE_URL', default='')
+
+if DATABASE_URL:
+    from urllib.parse import urlparse, unquote
+    db = urlparse(DATABASE_URL)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': unquote(db.path[1:]),
+            'USER': unquote(db.username or ''),
+            'PASSWORD': unquote(db.password or ''),
+            'HOST': db.hostname,
+            'PORT': db.port or '5432',
+        }
     }
-} if config('USE_SQLITE', default=True, cast=bool) else {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='bouano_doumaintang'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='postgres'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
+elif config('USE_SQLITE', default=True, cast=bool):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='bouano_doumaintang'),
+            'USER': config('DB_USER', default='postgres'),
+            'PASSWORD': config('DB_PASSWORD', default='postgres'),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -92,6 +110,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ---- CORS / frontend ----
 # Allow Vite dev server default port and common fallback port used locally
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,http://localhost:5174', cast=Csv())
+# Vercel génère plusieurs URLs (*.vercel.app) selon la branche / le déploiement
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.vercel\.app$',
+]
 
 # ---- DRF ----
 REST_FRAMEWORK = {
@@ -111,3 +133,9 @@ CAMPAY_WEBHOOK_KEY = config('CAMPAY_WEBHOOK_KEY', default='')
 
 MINIMUM_CONTRIBUTION_AMOUNT = config('MINIMUM_CONTRIBUTION_AMOUNT', default=20000, cast=int)
 FUNDRAISING_GOAL = config('FUNDRAISING_GOAL', default=5000000, cast=int)
+
+# ---- Taramoney ----
+TARAMONEY_API_KEY = config('TARAMONEY_API_KEY', default='')
+TARAMONEY_BUSINESS_ID = config('TARAMONEY_BUSINESS_ID', default='')
+TARAMONEY_BASE_URL = config('TARAMONEY_BASE_URL', default='https://www.dklo.co/api/tara/mobilepay')
+TARAMONEY_DEFAULT_WEBHOOK = config('TARAMONEY_DEFAULT_WEBHOOK', default='')

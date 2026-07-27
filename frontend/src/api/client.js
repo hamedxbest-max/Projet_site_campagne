@@ -1,6 +1,15 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+/** Normalise l'URL API (Vercel : toujours se terminer par /api). */
+function normalizeApiBase(raw) {
+  if (!raw || !String(raw).trim()) {
+    return 'http://localhost:8000/api';
+  }
+  const trimmed = String(raw).trim().replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+}
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE_URL);
 
 export const LIVE_POLL_MS = 8000;
 export const STUDENT_FEE = 20000;

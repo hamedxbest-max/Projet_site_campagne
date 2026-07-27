@@ -70,7 +70,7 @@ class Contribution(models.Model):
     contact_urgence_telephone = models.CharField(max_length=20, blank=True)
     contact_urgence_ville = models.CharField(max_length=180, blank=True)
 
-    photo = models.ImageField(upload_to='student_photos/%Y/%m/', blank=True, null=True)
+    photo = models.FileField(upload_to='student_photos/%Y/%m/', blank=True, null=True)
     numero_carte_etudiant = models.CharField(max_length=80, blank=True)
 
     mode_paiement = models.CharField(
@@ -157,3 +157,32 @@ class PaymentInstallment(models.Model):
 
     def __str__(self):
         return f"Tranche {self.installment_number} — {self.amount} FCFA ({self.payment_status})"
+
+ 
+class Payment(models.Model):
+    """Record of an external payment provider notification (Taramoney).
+
+    Stores the raw payload and optional links to Contribution or PaymentInstallment.
+    """
+    contribution = models.ForeignKey(
+        Contribution, related_name='payments', null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    installment = models.ForeignKey(
+        PaymentInstallment, related_name='payments', null=True, blank=True, on_delete=models.SET_NULL,
+    )
+    business_id = models.CharField(max_length=120, blank=True)
+    payment_id = models.CharField(max_length=200, blank=True)
+    collection_id = models.CharField(max_length=200, blank=True)
+    phone_number = models.CharField(max_length=40, blank=True)
+    vendor = models.CharField(max_length=80, blank=True)
+    status = models.CharField(max_length=32, blank=True)
+    raw_payload = models.JSONField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Payment {self.payment_id or 'unknown'} — {self.status}"

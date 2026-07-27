@@ -1,6 +1,6 @@
-# BOUAN'O DOUMAINTANG — Site de levée de fonds (ASSERES)
+# BOUANE Ô DOUMAINTANG — Site de levée de fonds (ASSERES)
 
-Site en 11 étapes pour la campagne de santé BOUAN'O DOUMAINTANG (16–23 août 2026),
+Site en 11 étapes pour la campagne de santé BOUANE Ô DOUMAINTANG (16–23 août 2026),
 avec paiement Campay (Orange Money / MTN Mobile Money) et espace admin pour suivre
 les contributions et exporter les données en Excel.
 
@@ -71,7 +71,37 @@ Deux façons d'accéder aux données :
   une action "Exporter la sélection en fichier Excel" dans la liste des
   contributions.
 
-## 5. Déploiement (proposition)
+## 5. Déploiement (Vercel + Render)
+
+### Frontend sur Vercel
+
+1. Importer le repo ; **Root Directory** = `frontend`
+2. Dans **Settings → Environment Variables**, ajouter :
+   ```
+   VITE_API_BASE_URL=https://projet-site-campagne.onrender.com/api
+   ```
+   (avec `/api` à la fin — obligatoire)
+3. **Redéployer** après toute modification de cette variable (Vite l’injecte au build)
+
+### Backend sur Render
+
+Variables obligatoires sur le service web :
+- `DJANGO_SECRET_KEY`, `DEBUG=False`
+- `ALLOWED_HOSTS=projet-site-campagne.onrender.com`
+- `DATABASE_URL` (fourni par la base Postgres Render)
+- `CORS_ALLOWED_ORIGINS=https://votre-app.vercel.app` (optionnel : le code autorise déjà `*.vercel.app`)
+
+Les migrations s’exécutent automatiquement au démarrage (`start.sh`).
+
+### Développement local
+
+Ne **pas** copier le `DATABASE_URL` de Render dans `backend/.env`. Utiliser SQLite :
+```
+USE_SQLITE=True
+DEBUG=True
+```
+
+## 6. Déploiement (autres options)
 
 - **Backend + base de données** : un VPS (ex. Contabo, Hostinger VPS) ou un
   service comme Railway/Render, avec PostgreSQL managé

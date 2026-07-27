@@ -128,8 +128,16 @@ export default function App() {
       setPayPhone(studentForm.telephone);
       setPayMethod(studentForm.methode_preferee);
       goNext();
-    } catch {
-      setPayError('Impossible de contacter le serveur. Vérifiez que le backend est démarré (port 8000).');
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      const status = err?.response?.status;
+      let message = detail;
+      if (!message && !err?.response) {
+        message = 'Impossible de joindre le backend. Sur Vercel, définissez VITE_API_BASE_URL=https://projet-site-campagne.onrender.com/api puis redéployez.';
+      } else if (!message && status >= 500) {
+        message = 'Erreur serveur (500). Vérifiez que les migrations sont appliquées sur Render.';
+      }
+      setPayError(message || 'Une erreur est survenue. Réessayez.');
     }
   }
 
@@ -142,8 +150,16 @@ export default function App() {
       setPayPhone(donorForm.telephone);
       setPayMethod(donorForm.methode_preferee);
       goNext();
-    } catch {
-      setPayError('Impossible de contacter le serveur. Vérifiez que le backend est démarré (port 8000).');
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      const status = err?.response?.status;
+      let message = detail;
+      if (!message && !err?.response) {
+        message = 'Impossible de joindre le backend. Sur Vercel, définissez VITE_API_BASE_URL=https://projet-site-campagne.onrender.com/api puis redéployez.';
+      } else if (!message && status >= 500) {
+        message = 'Erreur serveur (500). Vérifiez que les migrations sont appliquées sur Render.';
+      }
+      setPayError(message || 'Une erreur est survenue. Réessayez.');
     }
   }
 
@@ -152,6 +168,10 @@ export default function App() {
     const payAmt = userType === 'etudiant' ? STUDENT_FEE : amount;
     const minAmt = userType === 'etudiant' ? STUDENT_FEE : MIN_DONATION;
 
+    if (payAmt === 5000 || payAmt === 10000) {
+      setPayError('Les montants de 5 000 et 10 000 FCFA ne sont plus autorisés ici.');
+      return;
+    }
     if (payAmt < minAmt) {
       setPayError(`Montant minimum : ${minAmt.toLocaleString('fr-FR')} FCFA.`);
       return;
@@ -172,7 +192,7 @@ export default function App() {
       pollStatus('online');
     } catch {
       setPaying(false);
-      setPayError('Impossible de contacter Campay. Réessayez.');
+      setPayError('Impossible de contacter Taramoney. Réessayez.');
       setPayStatus(null);
     }
   }
@@ -332,10 +352,10 @@ function Step1() {
   return (
     <>
       <div className="hero-frame">
-        <img src="/images/page1-hero.png" alt="Campagne de santé BOUAN'O DOUMAINTANG" />
+        <img src="/images/page1-hero.png" alt="Campagne de santé BOUANE Ô DOUMAINTANG" />
       </div>
       <span className="eyebrow">ASSERES · Doumaintang</span>
-      <h1 className="headline">Merci de tout cœur de vouloir soutenir le projet <span className="accent">BOUAN'O DOUMAINTANG</span></h1>
+      <h1 className="headline">Merci de tout cœur de vouloir soutenir le projet <span className="accent">BOUANE Ô DOUMAINTANG</span></h1>
       <p className="lede">Mais avant, savez-vous de quoi il s'agit ?</p>
       <CountdownTimer />
       <div className="btn-row" style={{ marginTop: -8, marginBottom: 6 }}>
@@ -353,7 +373,7 @@ function Step2() {
       </div>
       <span className="eyebrow">Le projet</span>
       <p className="body-text">
-        Le projet <strong>« BOUAN'O DOUMAINTANG »</strong> est une campagne de santé gratuite organisée
+        Le projet <strong>« BOUANE Ô DOUMAINTANG »</strong> est une campagne de santé gratuite organisée
         par l'Association des Étudiants Ressortissants de l'Est (ASSERES) de la Faculté de Médecine
         et des Sciences Pharmaceutiques de l'Université de Douala, à l'endroit des populations
         locales de la commune de Doumaintang. Soutenus par de nombreuses élites, forces vives et
@@ -425,7 +445,7 @@ function Step7() {
     <>
       <span className="eyebrow">Ils nous ont rejoints ❗</span>
       <h1 className="headline">Nos partenaires</h1>
-      <p className="lede">Institutions et organisations qui accompagnent la campagne BOUAN&apos;O DOUMAINTANG.</p>
+      <p className="lede">Institutions et organisations qui accompagnent la campagne BOUANE Ô DOUMAINTANG.</p>
       <PartnerOrganizationsGrid />
     </>
   );
@@ -436,11 +456,11 @@ function Step8({ onStart }) {
   return (
     <>
       <span className="eyebrow">Eux aussi ❗</span>
-      <h1 className="headline">Ils soutiennent BOUAN'O DOUMAINTANG</h1>
+      <h1 className="headline">Ils soutiennent BOUANE Ô DOUMAINTANG</h1>
       <div className="photo-grid">
         {photos.map((photo) => (
           <div className="photo-frame" key={photo}>
-            <img src={`/images/${photo}`} alt="Soutien à la campagne BOUAN'O DOUMAINTANG" />
+            <img src={`/images/${photo}`} alt="Soutien à la campagne BOUANE Ô DOUMAINTANG" />
           </div>
         ))}
       </div>
@@ -786,7 +806,7 @@ function Step11StudentPayment({
 
       {paymentMode === 'en_ligne' ? (
         <>
-          <p className="lede">Payez via Orange Money ou MTN MoMo (Campay). Le montant est unique : {STUDENT_FEE.toLocaleString('fr-FR')} FCFA.</p>
+          <p className="lede">Payez via Orange Money ou MTN MoMo (Taramoney). Le montant est unique : {STUDENT_FEE.toLocaleString('fr-FR')} FCFA.</p>
           <div className="fee-badge" style={{ marginBottom: 18 }}>
             <span>Montant unique</span>
             <strong>{STUDENT_FEE.toLocaleString('fr-FR')} FCFA</strong>
@@ -813,7 +833,7 @@ function Step11StudentPayment({
           </div>
           {payStatus === 'PENDING' && (
             <p className="amount-hint" style={{ marginTop: 14 }}>
-              Validez la demande reçue sur votre téléphone (USSD Campay).
+              Validez la demande reçue sur votre téléphone.
             </p>
           )}
         </>
@@ -854,11 +874,11 @@ function Step11DonorPayment({
   amount, setAmount, payPhone, setPayPhone, payMethod, setPayMethod,
   paying, payStatus, payError, onPay, onBack,
 }) {
-  const presets = [5000, 10000, 25000, 50000, 100000];
+  const presets = [25000, 50000, 100000];
   return (
     <>
       <StepBack onBack={onBack} />
-      <span className="eyebrow">Paiement sécurisé · Campay</span>
+      <span className="eyebrow">Paiement sécurisé · Taramoney</span>
       <h1 className="headline">Votre don</h1>
       <p className="lede">Montant minimum : {MIN_DONATION.toLocaleString('fr-FR')} FCFA</p>
 
@@ -907,7 +927,7 @@ function Step11DonorPayment({
       </div>
       {payStatus === 'PENDING' && (
         <p className="amount-hint" style={{ marginTop: 14 }}>
-          Validez la demande reçue sur votre téléphone (USSD Campay).
+          Validez la demande reçue sur votre téléphone.
         </p>
       )}
     </>

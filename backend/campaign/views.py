@@ -5,10 +5,13 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .taramoney import TaramoneyClient, TaramoneyError
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 
-from .models import Contribution, PaymentInstallment, MIN_INSTALLMENT
+from .models import Contribution, PaymentInstallment, MIN_INSTALLMENT, Payment
 from .serializers import (
     ContributionSerializer,
     StudentCreateSerializer,
@@ -95,9 +98,18 @@ class ContributionViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        client = TaramoneyClient()
         try:
-            campay_response = campay.request_payment(amount, phone)
-        except campay.CampayError as exc:
+            taramoney_response = client.initiate_payment(
+                business_id=getattr(settings, 'TARAMONEY_BUSINESS_ID', ''),
+                product_id=f"contrib-{contribution.id}",
+                product_name=f"Paiement {contribution.get_contributor_type_display() or 'Contribution'}",
+                product_price=amount,
+                phone_number=phone,
+                web_hook_url=getattr(settings, 'TARAMONEY_DEFAULT_WEBHOOK', ''),
+                network='',
+            )
+        except TaramoneyError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
         if contribution.contributor_type == 'etudiant':
@@ -109,18 +121,18 @@ class ContributionViewSet(viewsets.ModelViewSet):
                 amount=amount,
                 mode_paiement='en_ligne',
                 payment_method=method,
-                campay_reference=campay_response.get('reference', ''),
+                campay_reference=taramoney_response.get('paymentId', ''),
                 payment_status='PENDING',
             )
             contribution.mode_paiement = 'en_ligne'
-            contribution.campay_reference = campay_response.get('reference', '')
+            contribution.campay_reference = taramoney_response.get('paymentId', '')
             contribution.save(update_fields=['mode_paiement', 'campay_reference', 'updated_at'])
 
             contribution.recalculate_payment_status()
         else:
             contribution.amount = amount
             contribution.payment_method = method
-            contribution.campay_reference = campay_response.get('reference', '')
+            contribution.campay_reference = taramoney_response.get('paymentId', '')
             contribution.payment_status = 'PENDING'
             contribution.mode_paiement = 'en_ligne'
             contribution.save()
@@ -128,6 +140,7 @@ class ContributionViewSet(viewsets.ModelViewSet):
         return Response({
             'reference': contribution.campay_reference,
             'status': contribution.payment_status,
+            'taramoney': taramoney_response,
         })
 
     @action(detail=True, methods=['post'], url_path='confirm-cash')
@@ -377,6 +390,53 @@ def api_health(request):
     return Response({'status': 'ok', 'live': True})
 
 
+class StartTaraPayment(APIView):
+    """Start a payment via Taramoney (TaraMoney) by forwarding the expected payload.
+
+    Expected JSON body:
+      - productId (string)
+      - productName (string)
+      - productPrice (int)
+      - phoneNumber (string, with country code)
+      - webHookUrl (string) optional — falls back to settings.TARAMONEY_DEFAULT_WEBHOOK
+      - network (string) optional
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        data = request.data
+        product_id = data.get('productId')
+        product_name = data.get('productName')
+        product_price = data.get('productPrice')
+        phone_number = data.get('phoneNumber')
+        web_hook = data.get('webHookUrl') or getattr(settings, 'TARAMONEY_DEFAULT_WEBHOOK', '')
+        network = data.get('network', '')
+
+        if not all([product_id, product_name, product_price, phone_number]):
+            return Response({'detail': 'Champs requis manquants.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            product_price = int(product_price)
+        except (TypeError, ValueError):
+            return Response({'detail': 'productPrice doit être un entier.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        client = TaramoneyClient()
+        try:
+            resp = client.initiate_payment(
+                business_id=getattr(settings, 'TARAMONEY_BUSINESS_ID', ''),
+                product_id=product_id,
+                product_name=product_name,
+                product_price=product_price,
+                phone_number=phone_number,
+                web_hook_url=web_hook,
+                network=network,
+            )
+        except TaramoneyError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response(resp)
+
+
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def campay_webhook(request):
@@ -405,14 +465,67 @@ def campay_webhook(request):
     return Response({'ok': True})
 
 
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def taramoney_webhook(request):
+    payload = request.data if isinstance(request.data, dict) else {}
+    payment_id = payload.get('paymentId') or payload.get('payment_id')
+    business_id = payload.get('businessId') or payload.get('business_id')
+    collection_id = payload.get('collectionId') or payload.get('collection_id')
+    phone = payload.get('phoneNumber') or payload.get('phone_number')
+    status_val = payload.get('status')
+
+    if not payment_id and not collection_id:
+        return Response({'detail': 'Payload invalide'}, status=status.HTTP_400_BAD_REQUEST)
+
+    p = Payment.objects.create(
+        business_id=business_id or '',
+        payment_id=payment_id or '',
+        collection_id=collection_id or '',
+        phone_number=phone or '',
+        status=status_val or '',
+        raw_payload=payload,
+    )
+
+    # Try linking to an installment by reference or by phone
+    linked = False
+    if payment_id:
+        inst = PaymentInstallment.objects.filter(campay_reference=payment_id).first()
+        if inst:
+            p.installment = inst
+            p.contribution = inst.contribution
+            linked = True
+    if not linked and phone:
+        contrib = Contribution.objects.filter(telephone__endswith=phone).first()
+        if contrib:
+            p.contribution = contrib
+            linked = True
+
+    p.save()
+
+    # Update linked records
+    if p.installment:
+        p.installment.payment_status = status_val or p.installment.payment_status
+        p.installment.save(update_fields=['payment_status'])
+        contrib = p.installment.contribution
+        contrib.sync_amount_paid()
+        contrib.recalculate_payment_status()
+        contrib.save(update_fields=['amount_paid', 'payment_status', 'updated_at'])
+    elif p.contribution:
+        p.contribution.payment_status = status_val or p.contribution.payment_status
+        p.contribution.save(update_fields=['payment_status', 'updated_at'])
+
+    return Response({'ok': True})
+
+
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def campaign_stats(request):
     paid = Contribution.objects.filter(payment_status='SUCCESSFUL')
-    total_collected = paid.aggregate(total=models.Sum('amount'))['total'] or 0
+    total_collected = paid.aggregate(total=models.Sum('amount_paid'))['total'] or 0
     students_count = Contribution.objects.filter(
         contributor_type='etudiant',
-        payment_status__in=['SUCCESSFUL', 'PENDING'],
+        payment_status__in=['SUCCESSFUL', 'PENDING', 'PARTIAL'],
     ).count()
     return Response({
         'total_collected': total_collected,

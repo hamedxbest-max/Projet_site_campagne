@@ -238,7 +238,7 @@ export default function AdminDashboard() {
           <form className="admin-login-box" onSubmit={handleLogin}>
             <img src="/images/asseres-logo.png" alt="ASSERES" className="admin-login-logo" />
             <h1>Espace organisateur</h1>
-            <p className="admin-login-sub">BOUAN&apos;O DOUMAINTANG · Tableau de bord ASSERES</p>
+            <p className="admin-login-sub">BOUANE Ô DOUMAINTANG · Tableau de bord ASSERES</p>
 
             <div className="admin-field">
               <label htmlFor="username">Nom d&apos;utilisateur</label>
@@ -279,7 +279,7 @@ export default function AdminDashboard() {
           <div className="admin-brand">
             <img src="/images/asseres-logo.png" alt="ASSERES" />
             <div className="admin-brand-text">
-              <h1>BOUAN&apos;O DOUMAINTANG</h1>
+              <h1>BOUANE Ô DOUMAINTANG</h1>
               <p>Tableau de bord · Contributions</p>
             </div>
           </div>

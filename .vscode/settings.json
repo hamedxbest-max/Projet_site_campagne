@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd \"c:\\\\Users\\\\mouda\\\\Documents\\\\bouano-doumaintang_1\\\\bouano-doumaintang\\\\backend\"; \\.venv\\\\Scripts\\\\python\\.exe manage\\.py migrate$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
