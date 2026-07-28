@@ -29,7 +29,16 @@ import {
   uploadPaymentProof,
   STUDENT_FEE,
   MIN_DONATION,
+  MAX_PHOTO_BYTES,
 } from './api/client.js';
+import FormErrorSummary from './components/FormErrorSummary.jsx';
+import FormField from './components/FormField.jsx';
+import {
+  formatApiError,
+  parseApiFieldErrors,
+  scrollToFirstFormError,
+} from './utils/formErrors.js';
+import { preparePhotoForUpload } from './utils/imageUpload.js';
 
 const TOTAL_STEPS = 12;
 
@@ -41,27 +50,13 @@ const EMPTY_DONOR = {
   nom: '', telephone: '', email: '', methode_preferee: 'orange',
 };
 
-function formatApiError(err, fallback = 'Une erreur est survenue. Réessayez.') {
-  const data = err?.response?.data;
-  if (!data) {
-    if (!err?.response) {
-      return 'Impossible de joindre le backend. Vérifiez VITE_API_BASE_URL sur Vercel puis redéployez.';
-    }
-    if (err?.response?.status >= 500) {
-      return 'Erreur serveur (500). Vérifiez les logs Render et que les migrations sont appliquées.';
-    }
-    return fallback;
-  }
-  if (typeof data.detail === 'string') return data.detail;
-  if (Array.isArray(data.detail)) return data.detail.join(' ');
-  if (typeof data === 'object') {
-    const parts = Object.entries(data).flatMap(([field, msgs]) => {
-      const text = Array.isArray(msgs) ? msgs.join(' ') : String(msgs);
-      return field === 'non_field_errors' ? [text] : [`${field}: ${text}`];
-    });
-    if (parts.length) return parts.join(' · ');
-  }
-  return fallback;
+function clearFieldError(setErrors, field) {
+  setErrors((prev) => {
+    if (!prev[field]) return prev;
+    const next = { ...prev };
+    delete next[field];
+    return next;
+  });
 }
 
 export default function App() {
@@ -81,6 +76,7 @@ export default function App() {
   const [paying, setPaying] = useState(false);
   const [payStatus, setPayStatus] = useState(null);
   const [payError, setPayError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [completedAs, setCompletedAs] = useState(null); // 'online' | 'cash'
 
   const goNext = () => { setDirection('forward'); setStep((s) => Math.min(TOTAL_STEPS, s + 1)); };
@@ -123,42 +119,80 @@ export default function App() {
       e.contact_urgence_telephone = 'Numéro invalide.';
     }
     if (!studentForm.contact_urgence_ville.trim()) e.contact_urgence_ville = 'Ville requise.';
+    if (studentPhoto) {
+      if (!studentPhoto.type.startsWith('image/')) {
+        e.photo = 'Le fichier doit être une image (JPG, PNG, etc.).';
+      } else if (studentPhoto.size > MAX_PHOTO_BYTES) {
+        e.photo = 'La photo ne doit pas dépasser 5 Mo.';
+      }
+    }
     setErrors(e);
+    if (Object.keys(e).length > 0) scrollToFirstFormError();
     return Object.keys(e).length === 0;
   }
 
   function validateDonorForm() {
     const e = {};
     if (!donorForm.nom.trim()) e.nom = 'Nom requis.';
-    if (!/^\+?[0-9]{8,15}$/.test(donorForm.telephone.trim())) e.telephone = 'Numéro invalide.';
+    if (!donorForm.telephone.trim()) {
+      e.telephone = 'Téléphone requis.';
+    } else if (!/^\+?[0-9]{8,15}$/.test(donorForm.telephone.trim())) {
+      e.telephone = 'Numéro invalide.';
+    }
     if (donorForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donorForm.email.trim())) {
       e.email = 'Email invalide.';
     }
     setErrors(e);
+    if (Object.keys(e).length > 0) scrollToFirstFormError();
     return Object.keys(e).length === 0;
   }
 
   async function handleStudentSubmit() {
-    if (!validateStudentForm()) return;
+    if (!validateStudentForm()) {
+      setPayError('');
+      return;
+    }
     setPayError('');
+    setSubmitting(true);
     try {
       const payload = {
         ...studentForm,
         age: Number(studentForm.age),
       };
-      const res = await createStudentRegistration(payload, studentPhoto);
+      let photoToSend = null;
+      if (studentPhoto) {
+        try {
+          photoToSend = await preparePhotoForUpload(studentPhoto);
+        } catch (imgErr) {
+          setErrors({ photo: imgErr.message });
+          scrollToFirstFormError();
+          return;
+        }
+      }
+      const res = await createStudentRegistration(payload, photoToSend);
       setContributionId(res.id);
       setPayPhone(studentForm.telephone);
       setPayMethod(studentForm.methode_preferee);
       goNext();
     } catch (err) {
+      const apiErrors = parseApiFieldErrors(err?.response?.data);
+      if (Object.keys(apiErrors).length > 0) {
+        setErrors(apiErrors);
+        scrollToFirstFormError();
+      }
       setPayError(formatApiError(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
   async function handleDonorSubmit() {
-    if (!validateDonorForm()) return;
+    if (!validateDonorForm()) {
+      setPayError('');
+      return;
+    }
     setPayError('');
+    setSubmitting(true);
     try {
       const res = await createDonorRegistration(donorForm);
       setContributionId(res.id);
@@ -166,7 +200,14 @@ export default function App() {
       setPayMethod(donorForm.methode_preferee);
       goNext();
     } catch (err) {
+      const apiErrors = parseApiFieldErrors(err?.response?.data);
+      if (Object.keys(apiErrors).length > 0) {
+        setErrors(apiErrors);
+        scrollToFirstFormError();
+      }
       setPayError(formatApiError(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -281,9 +322,12 @@ export default function App() {
               photo={studentPhoto}
               setPhoto={setStudentPhoto}
               errors={errors}
+              setErrors={setErrors}
               payError={payError}
               onSubmit={handleStudentSubmit}
               onBack={() => goToStep(9)}
+              clearError={(field) => clearFieldError(setErrors, field)}
+              submitting={submitting}
             />
           )}
           {step === 10 && userType === 'donateur' && (
@@ -294,6 +338,8 @@ export default function App() {
               payError={payError}
               onSubmit={handleDonorSubmit}
               onBack={() => goToStep(9)}
+              clearError={(field) => clearFieldError(setErrors, field)}
+              submitting={submitting}
             />
           )}
           {step === 11 && userType === 'etudiant' && (
@@ -523,10 +569,13 @@ function StepBack({ onBack }) {
   );
 }
 
-function YesNoField({ label, name, value, onChange, error }) {
+function YesNoField({ label, name, value, onChange, error, required = false }) {
   return (
-    <div className="form-field">
-      <label>{label}</label>
+    <div className="form-field" id={`field-${name}`} data-invalid={error ? 'true' : undefined}>
+      <label>
+        {label}
+        {required && <span className="required-mark"> *</span>}
+      </label>
       <div className="radio-inline">
         <label className="radio-option">
           <input type="radio" name={name} value="oui" checked={value === 'oui'} onChange={onChange} />
@@ -542,101 +591,93 @@ function YesNoField({ label, name, value, onChange, error }) {
   );
 }
 
-function Step10Student({ form, setForm, photo, setPhoto, errors, payError, onSubmit, onBack }) {
-  const update = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+function fieldInputProps(fieldKey, errors) {
+  return {
+    'aria-invalid': errors[fieldKey] ? 'true' : undefined,
+    className: errors[fieldKey] ? 'input-invalid' : undefined,
+  };
+}
+
+function Step10Student({ form, setForm, photo, setPhoto, errors, setErrors, payError, onSubmit, onBack, clearError, submitting }) {
+  const update = (k) => (e) => {
+    setForm({ ...form, [k]: e.target.value });
+    clearError?.(k);
+  };
   return (
     <>
       <StepBack onBack={onBack} />
       <span className="eyebrow"><ShieldCheck size={13} /> Inscription étudiant</span>
       <h1 className="headline">Informations personnelles</h1>
       <p className="lede">
-        Ces données seront transmises au comité technique d&apos;organisation pour une bonne gestion de la campagne.
+        Les champs marqués <span className="required-mark">*</span> sont obligatoires.
         Participation fixée à <strong>{STUDENT_FEE.toLocaleString('fr-FR')} FCFA</strong>.
       </p>
+
+      <FormErrorSummary errors={errors} />
 
       <div className="form-block">
         <h2 className="form-section-title">Informations personnelles</h2>
 
         <div className="form-row-2">
-          <div className="form-field">
-            <label>1. Nom</label>
-            <input value={form.nom} onChange={update('nom')} placeholder="Nom de famille" />
-            {errors.nom && <div className="field-error">{errors.nom}</div>}
-          </div>
-          <div className="form-field">
-            <label>Prénom(s)</label>
-            <input value={form.prenom} onChange={update('prenom')} placeholder="Prénom(s)" />
-            {errors.prenom && <div className="field-error">{errors.prenom}</div>}
-          </div>
+          <FormField id="nom" label="1. Nom" required error={errors.nom}>
+            <input id="input-nom" {...fieldInputProps('nom', errors)} value={form.nom} onChange={update('nom')} placeholder="Nom de famille" />
+          </FormField>
+          <FormField id="prenom" label="Prénom(s)" required error={errors.prenom}>
+            <input id="input-prenom" {...fieldInputProps('prenom', errors)} value={form.prenom} onChange={update('prenom')} placeholder="Prénom(s)" />
+          </FormField>
         </div>
 
         <div className="form-row-2">
-          <div className="form-field">
-            <label>2. Âge</label>
-            <input value={form.age} onChange={update('age')} placeholder="Ex. 22" type="number" min="16" max="65" />
-            {errors.age && <div className="field-error">{errors.age}</div>}
-          </div>
-          <div className="form-field">
-            <label>3. Sexe</label>
-            <select value={form.sexe} onChange={update('sexe')}>
+          <FormField id="age" label="2. Âge" required error={errors.age}>
+            <input id="input-age" {...fieldInputProps('age', errors)} value={form.age} onChange={update('age')} placeholder="Ex. 22" type="number" min="16" max="65" />
+          </FormField>
+          <FormField id="sexe" label="3. Sexe" required error={errors.sexe}>
+            <select id="input-sexe" {...fieldInputProps('sexe', errors)} value={form.sexe} onChange={update('sexe')}>
               <option value="">— Sélectionner —</option>
               <option value="M">Masculin</option>
               <option value="F">Féminin</option>
             </select>
-            {errors.sexe && <div className="field-error">{errors.sexe}</div>}
-          </div>
+          </FormField>
         </div>
 
-        <div className="form-field">
-          <label>4. Filière</label>
-          <select value={form.filiere} onChange={update('filiere')}>
+        <FormField id="filiere" label="4. Filière" required error={errors.filiere}>
+          <select id="input-filiere" {...fieldInputProps('filiere', errors)} value={form.filiere} onChange={update('filiere')}>
             <option value="">— Sélectionner —</option>
             {FILIERE_OPTIONS.map((f) => (
               <option key={f} value={f}>{f}</option>
             ))}
           </select>
-          {errors.filiere && <div className="field-error">{errors.filiere}</div>}
-        </div>
+        </FormField>
 
-        <div className="form-field">
-          <label>5. Niveau d&apos;étude</label>
-          <select value={form.niveau_academique} onChange={update('niveau_academique')}>
+        <FormField id="niveau_academique" label="5. Niveau d'étude" required error={errors.niveau_academique}>
+          <select id="input-niveau_academique" {...fieldInputProps('niveau_academique', errors)} value={form.niveau_academique} onChange={update('niveau_academique')}>
             <option value="">— Sélectionner —</option>
             {NIVEAU_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
-          {errors.niveau_academique && <div className="field-error">{errors.niveau_academique}</div>}
-        </div>
+        </FormField>
 
-        <div className="form-field">
-          <label>7. Numéro de téléphone</label>
-          <input value={form.telephone} onChange={update('telephone')} placeholder="+237 6XX XXX XXX" />
-          {errors.telephone && <div className="field-error">{errors.telephone}</div>}
-        </div>
+        <FormField id="telephone" label="7. Numéro de téléphone" required error={errors.telephone}>
+          <input id="input-telephone" {...fieldInputProps('telephone', errors)} value={form.telephone} onChange={update('telephone')} placeholder="+237 6XX XXX XXX" />
+        </FormField>
 
-        <div className="form-field">
-          <label>8. Adresse e-mail (optionnelle)</label>
-          <input value={form.email} onChange={update('email')} placeholder="vous@email.com" type="email" />
-          {errors.email && <div className="field-error">{errors.email}</div>}
-        </div>
+        <FormField id="email" label="8. Adresse e-mail" optional error={errors.email}>
+          <input id="input-email" {...fieldInputProps('email', errors)} value={form.email} onChange={update('email')} placeholder="vous@email.com" type="email" />
+        </FormField>
 
-        <div className="form-field">
-          <label>9. Université / Faculté d&apos;appartenance</label>
-          <select value={form.ecole} onChange={update('ecole')}>
+        <FormField id="ecole" label="9. Université / Faculté d'appartenance" required error={errors.ecole}>
+          <select id="input-ecole" {...fieldInputProps('ecole', errors)} value={form.ecole} onChange={update('ecole')}>
             <option value="">— Sélectionner —</option>
             {PARTNER_SCHOOL_NAMES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-          {errors.ecole && <div className="field-error">{errors.ecole}</div>}
-        </div>
+        </FormField>
 
-        <div className="form-field">
-          <label>10. Ville de résidence (ville d&apos;où vous partirez pour la campagne)</label>
-          <input value={form.ville_residence} onChange={update('ville_residence')} placeholder="Ex. Douala, Yaoundé…" />
-          {errors.ville_residence && <div className="field-error">{errors.ville_residence}</div>}
-        </div>
+        <FormField id="ville_residence" label="10. Ville de résidence (ville d'où vous partirez pour la campagne)" required error={errors.ville_residence}>
+          <input id="input-ville_residence" {...fieldInputProps('ville_residence', errors)} value={form.ville_residence} onChange={update('ville_residence')} placeholder="Ex. Douala, Yaoundé…" />
+        </FormField>
 
         <YesNoField
           label="11. Avez-vous déjà participé à une campagne de santé auparavant ?"
@@ -644,6 +685,7 @@ function Step10Student({ form, setForm, photo, setPhoto, errors, payError, onSub
           value={form.deja_participe_campagne}
           onChange={update('deja_participe_campagne')}
           error={errors.deja_participe_campagne}
+          required
         />
 
         <YesNoField
@@ -652,6 +694,7 @@ function Step10Student({ form, setForm, photo, setPhoto, errors, payError, onSub
           value={form.ressortissant_est}
           onChange={update('ressortissant_est')}
           error={errors.ressortissant_est}
+          required
         />
 
         <YesNoField
@@ -660,89 +703,99 @@ function Step10Student({ form, setForm, photo, setPhoto, errors, payError, onSub
           value={form.parle_makaa}
           onChange={update('parle_makaa')}
           error={errors.parle_makaa}
+          required
         />
 
-        <div className="form-field">
-          <label>14. Quelle est votre taille de T-shirt ?</label>
-          <select value={form.taille_tshirt} onChange={update('taille_tshirt')}>
+        <FormField id="taille_tshirt" label="14. Quelle est votre taille de T-shirt ?" required error={errors.taille_tshirt}>
+          <select id="input-taille_tshirt" {...fieldInputProps('taille_tshirt', errors)} value={form.taille_tshirt} onChange={update('taille_tshirt')}>
             <option value="">— Sélectionner —</option>
             {TAILLE_TSHIRT_OPTIONS.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-          {errors.taille_tshirt && <div className="field-error">{errors.taille_tshirt}</div>}
-        </div>
+        </FormField>
 
-        <div className="form-field">
-          <label>15. Allergies ou soucis de santé particuliers <span className="label-optional">(optionnel)</span></label>
+        <FormField id="allergies_sante" label="15. Allergies ou soucis de santé particuliers" optional>
           <textarea
+            id="input-allergies_sante"
             value={form.allergies_sante}
             onChange={update('allergies_sante')}
             placeholder="Indiquez le cas échéant…"
             rows={3}
           />
-        </div>
+        </FormField>
 
-        <div className="form-field">
-          <label>16. Quelles sont vos attentes vis-à-vis de cette campagne ? <span className="label-optional">(optionnel)</span></label>
+        <FormField id="attentes_campagne" label="16. Quelles sont vos attentes vis-à-vis de cette campagne ?" optional>
           <textarea
+            id="input-attentes_campagne"
             value={form.attentes_campagne}
             onChange={update('attentes_campagne')}
             placeholder="Vos attentes…"
             rows={3}
           />
-        </div>
+        </FormField>
 
-        <div className="form-field">
-          <label><Upload size={14} /> Ajouter une photo <span className="label-optional">(optionnel)</span></label>
+        <FormField id="photo" label={<><Upload size={14} /> Ajouter une photo (JPG/PNG, max 5 Mo)</>} optional error={errors.photo}>
           <input
+            id="input-photo"
             type="file"
-            accept="image/*"
-            onChange={(e) => setPhoto(e.target.files?.[0] || null)}
-            className="file-input"
+            accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png"
+            onChange={async (e) => {
+              const file = e.target.files?.[0] || null;
+              setPhoto(file);
+              clearError?.('photo');
+              if (!file) return;
+              try {
+                await preparePhotoForUpload(file);
+              } catch (imgErr) {
+                setPhoto(null);
+                e.target.value = '';
+                clearError?.('photo');
+                setErrors((prev) => ({ ...prev, photo: imgErr.message }));
+                scrollToFirstFormError();
+              }
+            }}
+            className={`file-input${errors.photo ? ' input-invalid' : ''}`}
           />
-          {photo && <p className="file-name">{photo.name}</p>}
-        </div>
+          {photo && <p className="file-name">{photo.name} ({(photo.size / 1024 / 1024).toFixed(2)} Mo)</p>}
+        </FormField>
       </div>
 
       <div className="form-block">
         <h2 className="form-section-title">Contact d&apos;urgence</h2>
 
-        <div className="form-field">
-          <label>1. Nom et prénom(s) de la personne à contacter en cas d&apos;urgence</label>
-          <input value={form.contact_urgence_nom} onChange={update('contact_urgence_nom')} placeholder="Nom complet" />
-          {errors.contact_urgence_nom && <div className="field-error">{errors.contact_urgence_nom}</div>}
-        </div>
+        <FormField id="contact_urgence_nom" label="1. Nom et prénom(s) de la personne à contacter en cas d'urgence" required error={errors.contact_urgence_nom}>
+          <input id="input-contact_urgence_nom" {...fieldInputProps('contact_urgence_nom', errors)} value={form.contact_urgence_nom} onChange={update('contact_urgence_nom')} placeholder="Nom complet" />
+        </FormField>
 
-        <div className="form-field">
-          <label>2. Lien de parenté (parent, frère/sœur, tuteur, ami…)</label>
-          <input value={form.contact_urgence_lien} onChange={update('contact_urgence_lien')} placeholder="Ex. Parent, ami…" />
-          {errors.contact_urgence_lien && <div className="field-error">{errors.contact_urgence_lien}</div>}
-        </div>
+        <FormField id="contact_urgence_lien" label="2. Lien de parenté (parent, frère/sœur, tuteur, ami…)" required error={errors.contact_urgence_lien}>
+          <input id="input-contact_urgence_lien" {...fieldInputProps('contact_urgence_lien', errors)} value={form.contact_urgence_lien} onChange={update('contact_urgence_lien')} placeholder="Ex. Parent, ami…" />
+        </FormField>
 
-        <div className="form-field">
-          <label>3. Numéro de téléphone de la personne à contacter</label>
-          <input value={form.contact_urgence_telephone} onChange={update('contact_urgence_telephone')} placeholder="+237 6XX XXX XXX" />
-          {errors.contact_urgence_telephone && <div className="field-error">{errors.contact_urgence_telephone}</div>}
-        </div>
+        <FormField id="contact_urgence_telephone" label="3. Numéro de téléphone de la personne à contacter" required error={errors.contact_urgence_telephone}>
+          <input id="input-contact_urgence_telephone" {...fieldInputProps('contact_urgence_telephone', errors)} value={form.contact_urgence_telephone} onChange={update('contact_urgence_telephone')} placeholder="+237 6XX XXX XXX" />
+        </FormField>
 
-        <div className="form-field">
-          <label>4. Ville / lieu de résidence de la personne à contacter</label>
-          <input value={form.contact_urgence_ville} onChange={update('contact_urgence_ville')} placeholder="Ville ou lieu" />
-          {errors.contact_urgence_ville && <div className="field-error">{errors.contact_urgence_ville}</div>}
-        </div>
+        <FormField id="contact_urgence_ville" label="4. Ville / lieu de résidence de la personne à contacter" required error={errors.contact_urgence_ville}>
+          <input id="input-contact_urgence_ville" {...fieldInputProps('contact_urgence_ville', errors)} value={form.contact_urgence_ville} onChange={update('contact_urgence_ville')} placeholder="Ville ou lieu" />
+        </FormField>
       </div>
 
       <div className="btn-row">
-        {payError && <div className="field-error" style={{ width: '100%', marginBottom: 4 }}>{payError}</div>}
-        <button className="btn btn-primary" onClick={onSubmit}>Continuer vers le paiement →</button>
+        {payError && <div className="field-error form-submit-error">{payError}</div>}
+        <button className="btn btn-primary" onClick={onSubmit} disabled={submitting}>
+          {submitting ? 'Envoi en cours…' : 'Continuer vers le paiement →'}
+        </button>
       </div>
     </>
   );
 }
 
-function Step10Donor({ form, setForm, errors, payError, onSubmit, onBack }) {
-  const update = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+function Step10Donor({ form, setForm, errors, payError, onSubmit, onBack, clearError, submitting }) {
+  const update = (k) => (e) => {
+    setForm({ ...form, [k]: e.target.value });
+    clearError?.(k);
+  };
   return (
     <>
       <StepBack onBack={onBack} />
@@ -750,27 +803,25 @@ function Step10Donor({ form, setForm, errors, payError, onSubmit, onBack }) {
       <h1 className="headline">Merci pour votre générosité</h1>
       <p className="lede">Seulement l'essentiel — vous pourrez choisir le montant à l'étape suivante.</p>
 
+      <FormErrorSummary errors={errors} title="Champs obligatoires manquants :" />
+
       <div className="form-block form-block-minimal">
-        <div className="form-field">
-          <label>Votre nom</label>
-          <input value={form.nom} onChange={update('nom')} placeholder="Nom ou organisation" />
-          {errors.nom && <div className="field-error">{errors.nom}</div>}
-        </div>
-        <div className="form-field">
-          <label>Téléphone (pour le paiement mobile)</label>
-          <input value={form.telephone} onChange={update('telephone')} placeholder="+237 6XX XXX XXX" />
-          {errors.telephone && <div className="field-error">{errors.telephone}</div>}
-        </div>
-        <div className="form-field">
-          <label>Email <span className="label-optional">(optionnel)</span></label>
-          <input value={form.email} onChange={update('email')} placeholder="vous@email.com" type="email" />
-          {errors.email && <div className="field-error">{errors.email}</div>}
-        </div>
+        <FormField id="nom" label="Votre nom" required error={errors.nom}>
+          <input id="input-donor-nom" {...fieldInputProps('nom', errors)} value={form.nom} onChange={update('nom')} placeholder="Nom ou organisation" />
+        </FormField>
+        <FormField id="telephone" label="Téléphone (pour le paiement mobile)" required error={errors.telephone}>
+          <input id="input-donor-tel" {...fieldInputProps('telephone', errors)} value={form.telephone} onChange={update('telephone')} placeholder="+237 6XX XXX XXX" />
+        </FormField>
+        <FormField id="email" label="Email" optional error={errors.email}>
+          <input id="input-donor-email" {...fieldInputProps('email', errors)} value={form.email} onChange={update('email')} placeholder="vous@email.com" type="email" />
+        </FormField>
       </div>
 
       <div className="btn-row">
-        {payError && <div className="field-error" style={{ width: '100%', marginBottom: 4 }}>{payError}</div>}
-        <button className="btn btn-gold" onClick={onSubmit}>Choisir le montant →</button>
+        {payError && <div className="field-error form-submit-error">{payError}</div>}
+        <button className="btn btn-gold" onClick={onSubmit} disabled={submitting}>
+          {submitting ? 'Envoi en cours…' : 'Choisir le montant →'}
+        </button>
       </div>
     </>
   );

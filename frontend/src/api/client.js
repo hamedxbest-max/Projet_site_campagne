@@ -11,24 +11,22 @@ function normalizeApiBase(raw) {
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE_URL);
 
+/** Client sans Content-Type par défaut — requis pour FormData / photos. */
+const multipartApi = axios.create({ baseURL: API_BASE });
+
 export const LIVE_POLL_MS = 8000;
 export const STUDENT_FEE = 20000;
 export const MIN_INSTALLMENT = 5000;
 export const MIN_DONATION = 1000;
+export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 export const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
 });
 
-/** Envoie FormData sans forcer application/json (sinon la photo échoue). */
 function postFormData(url, formData) {
-  return api.post(url, formData, {
-    transformRequest: [(data, headers) => {
-      delete headers['Content-Type'];
-      return data;
-    }],
-  });
+  return multipartApi.post(url, formData);
 }
 
 export function authHeaders(token) {
@@ -44,9 +42,11 @@ export async function createStudentRegistration(payload, photoFile = null) {
   if (photoFile) {
     const formData = new FormData();
     Object.entries(payload).forEach(([key, value]) => {
-      if (value !== '' && value != null) formData.append(key, value);
+      if (value === null || value === undefined) return;
+      if (key === 'email' && value === '') return;
+      formData.append(key, String(value));
     });
-    formData.append('photo', photoFile);
+    formData.append('photo', photoFile, photoFile.name || 'photo.jpg');
     const { data } = await postFormData('/contributions/student/', formData);
     return data;
   }

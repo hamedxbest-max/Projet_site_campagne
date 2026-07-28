@@ -58,10 +58,23 @@ class ContributionViewSet(viewsets.ModelViewSet):
     )
     def create_student(self, request):
         serializer = StudentCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        contribution = serializer.save()
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            contribution = serializer.save()
+        except (OSError, IOError, PermissionError) as exc:
+            return Response(
+                {
+                    'photo': [
+                        'Impossible d\'enregistrer la photo sur le serveur. '
+                        'Réessayez sans photo ou avec une image JPG plus légère.',
+                    ],
+                    'detail': str(exc) if settings.DEBUG else None,
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response(
-            ContributionSerializer(contribution).data,
+            ContributionSerializer(contribution, context={'request': request}).data,
             status=status.HTTP_201_CREATED,
         )
 

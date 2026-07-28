@@ -478,7 +478,48 @@ h1.headline .accent {
 }
 .field-error { color: var(--red); font-size: 12.5px; margin-top: 6px; font-weight: 600; }
 
-.payment-methods { display: flex; gap: 12px; }
+.form-summary-error {
+  background: #fff5f5;
+  border: 1.5px solid rgba(192, 57, 43, 0.35);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  color: var(--red);
+  font-size: 13.5px;
+}
+.form-summary-error ul {
+  margin: 8px 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+.form-summary-link {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--red);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.required-mark {
+  color: var(--red);
+  font-weight: 800;
+}
+.form-field[data-invalid="true"] input,
+.form-field[data-invalid="true"] select,
+.form-field[data-invalid="true"] textarea,
+.input-invalid,
+.file-input.input-invalid {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12);
+}
+.form-submit-error {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 8px;
+}
 .method-pill {
   flex: 1;
   border: 1.5px solid rgba(15,42,71,0.16);

@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import Contribution, PaymentInstallment, STUDENT_FEE, MIN_INSTALLMENT
 
-STUDENT_FEE = STUDENT_FEE  # re-export for views
+MAX_PHOTO_BYTES = 5 * 1024 * 1024
+ALLOWED_PHOTO_TYPES = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
 
 
 class PaymentInstallmentSerializer(serializers.ModelSerializer):
@@ -19,6 +20,26 @@ class ContributionSerializer(serializers.ModelSerializer):
     amount_due = serializers.IntegerField(read_only=True)
     fee_total = serializers.IntegerField(read_only=True)
     installments = PaymentInstallmentSerializer(many=True, read_only=True)
+    photo = serializers.SerializerMethodField()
+    payment_proof = serializers.SerializerMethodField()
+
+    def get_photo(self, obj):
+        if not obj.photo:
+            return ''
+        request = self.context.get('request')
+        url = obj.photo.url
+        if request and url.startswith('/'):
+            return request.build_absolute_uri(url)
+        return url
+
+    def get_payment_proof(self, obj):
+        if not obj.payment_proof:
+            return ''
+        request = self.context.get('request')
+        url = obj.payment_proof.url
+        if request and url.startswith('/'):
+            return request.build_absolute_uri(url)
+        return url
 
     class Meta:
         model = Contribution
@@ -87,6 +108,25 @@ class StudentCreateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError('Université / Faculté requise.')
         return value.strip()
+
+    def validate_photo(self, value):
+        if not value:
+            return value
+        if value.size > MAX_PHOTO_BYTES:
+            raise serializers.ValidationError('La photo ne doit pas dépasser 5 Mo.')
+        content_type = (getattr(value, 'content_type', '') or '').lower()
+        name = (getattr(value, 'name', '') or '').lower()
+        if name.endswith(('.heic', '.heif')):
+            raise serializers.ValidationError(
+                'Format HEIC non supporté. Utilisez JPG ou PNG.',
+            )
+        if content_type and content_type not in ALLOWED_PHOTO_TYPES:
+            raise serializers.ValidationError('Format non supporté. Utilisez JPG, PNG ou WEBP.')
+        if not content_type:
+            allowed_ext = ('.jpg', '.jpeg', '.png', '.webp', '.gif')
+            if not any(name.endswith(ext) for ext in allowed_ext):
+                raise serializers.ValidationError('Format non supporté. Utilisez JPG ou PNG.')
+        return value
 
     def create(self, validated_data):
         validated_data['contributor_type'] = 'etudiant'
