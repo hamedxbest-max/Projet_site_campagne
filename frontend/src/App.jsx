@@ -505,7 +505,7 @@ function Step7() {
 }
 
 function Step8({ onStart }) {
-  const photos = ['page8-1.png', 'page8-2.png', 'page8-3.png', 'page8-4.png', 'page8-5.png', 'page8-6.png'];
+  const photos = ['page8-2.png', 'page8-1.png', 'page8-3.png', 'page8-4.png', 'page8-5.png', 'page8-6.png'];
   return (
     <>
       <span className="eyebrow">Eux aussi ❗</span>
