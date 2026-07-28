@@ -2,7 +2,7 @@ import React from 'react';
 import { Share2 } from 'lucide-react';
 
 const SHARE_TEXT = encodeURIComponent(
-  "Je soutiens la campagne de santé gratuite BOUANE Ô DOUMAINTANG (16-23 août 2026, ASSERES). Rejoignez le mouvement :"
+  "Je soutiens la campagne de santé  BOUANE Ô DOUMAINTANG (16-23 août 2026, ASSERES). Rejoignez le mouvement :"
 );
 
 export default function ShareButton({ url }) {
