@@ -55,12 +55,6 @@ function TypeBadge({ type }) {
 }
 
 function modeLabel(row) {
-  if (row.contributor_type === 'donateur') {
-    if (row.payment_method === 'orange') return 'Orange Money';
-    if (row.payment_method === 'mtn') return 'MTN MoMo';
-    if (row.methode_preferee === 'orange') return 'Orange Money';
-    if (row.methode_preferee === 'mtn') return 'MTN MoMo';
-  }
   if (row.mode_paiement === 'especes') return 'Espèces';
   if (row.mode_paiement === 'en_ligne') return 'En ligne';
   if (row.methode_preferee === 'orange') return 'Orange Money';
@@ -421,7 +415,7 @@ export default function AdminDashboard() {
                                 {processingId === r.id
                                   ? 'Validation...'
                                   : r.contributor_type === 'donateur'
-                                    ? 'Confirmer réception du don'
+                                    ? 'Confirmer le don reçu'
                                     : 'Valider paiement en espèces'}
                               </button>
                             )}

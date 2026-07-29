@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Stethoscope, HeartHandshake, GraduationCap, Users,
-  CreditCard, Banknote, ShieldCheck, Upload, ArrowLeft,
+  ShieldCheck, Upload, ArrowLeft,
 } from 'lucide-react';
 import SunProgress from './components/SunProgress.jsx';
 import CountdownTimer from './components/CountdownTimer.jsx';
@@ -23,9 +23,7 @@ import {
 import {
   createStudentRegistration,
   createDonorRegistration,
-  submitDonationPledge,
-  initiatePayment,
-  getPaymentStatus,
+  confirmDonorPledge,
   confirmCashPayment,
   uploadPaymentProof,
   STUDENT_FEE,
@@ -72,10 +70,8 @@ export default function App() {
   const [amount, setAmount] = useState(STUDENT_FEE);
   const [payPhone, setPayPhone] = useState('');
   const [payMethod, setPayMethod] = useState('orange');
-  const [paymentMode, setPaymentMode] = useState('en_ligne'); // en_ligne | especes
   const [paymentProof, setPaymentProof] = useState(null);
   const [paying, setPaying] = useState(false);
-  const [payStatus, setPayStatus] = useState(null);
   const [payError, setPayError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [completedAs, setCompletedAs] = useState(null); // 'online' | 'cash'
@@ -89,7 +85,6 @@ export default function App() {
   function chooseUserType(type) {
     setUserType(type);
     setAmount(type === 'etudiant' ? STUDENT_FEE : 10000);
-    setPaymentMode('en_ligne');
     setPayError('');
     setErrors({});
     goNext();
@@ -212,7 +207,7 @@ export default function App() {
     }
   }
 
-  async function handleDonorDonate() {
+  async function handleDonorPledge() {
     setPayError('');
     if (amount < MIN_DONATION) {
       setPayError(`Montant minimum : ${MIN_DONATION.toLocaleString('fr-FR')} FCFA.`);
@@ -225,47 +220,13 @@ export default function App() {
 
     setPaying(true);
     try {
-      await submitDonationPledge(contributionId, amount, payPhone, payMethod);
+      await confirmDonorPledge(contributionId, amount, payPhone, payMethod);
       setCompletedAs('pledge');
+      setPaying(false);
       celebrateAndFinish();
     } catch (err) {
-      setPayError(formatApiError(err));
-    } finally {
       setPaying(false);
-    }
-  }
-
-  async function handleOnlinePay() {
-    setPayError('');
-    const payAmt = userType === 'etudiant' ? STUDENT_FEE : amount;
-    const minAmt = userType === 'etudiant' ? STUDENT_FEE : MIN_DONATION;
-
-    if (payAmt === 5000 || payAmt === 10000) {
-      setPayError('Les montants de 5 000 et 10 000 FCFA ne sont plus autorisés ici.');
-      return;
-    }
-    if (payAmt < minAmt) {
-      setPayError(`Montant minimum : ${minAmt.toLocaleString('fr-FR')} FCFA.`);
-      return;
-    }
-    if (userType === 'etudiant' && payAmt !== STUDENT_FEE) {
-      setPayError(`Le paiement étudiant doit être exactement ${STUDENT_FEE.toLocaleString('fr-FR')} FCFA.`);
-      return;
-    }
-    if (!/^\+?[0-9]{8,15}$/.test(payPhone.trim())) {
-      setPayError('Numéro de téléphone invalide.');
-      return;
-    }
-
-    setPaying(true);
-    setPayStatus('PENDING');
-    try {
-      await initiatePayment(contributionId, payAmt, payPhone, payMethod);
-      pollStatus('online');
-    } catch {
-      setPaying(false);
-      setPayError('Impossible de contacter Taramoney. Réessayez.');
-      setPayStatus(null);
+      setPayError(formatApiError(err) || 'Enregistrement impossible. Réessayez.');
     }
   }
 
@@ -286,32 +247,6 @@ export default function App() {
       setPaying(false);
       setPayError('Envoi impossible. Vérifiez la connexion au serveur.');
     }
-  }
-
-  function pollStatus(mode) {
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts += 1;
-      try {
-        const res = await getPaymentStatus(contributionId);
-        if (res.status === 'SUCCESSFUL') {
-          clearInterval(interval);
-          setPayStatus('SUCCESSFUL');
-          setPaying(false);
-          setCompletedAs(mode);
-          celebrateAndFinish();
-        } else if (res.status === 'FAILED') {
-          clearInterval(interval);
-          setPayStatus('FAILED');
-          setPaying(false);
-        }
-      } catch { /* ignore */ }
-      if (attempts > 20) {
-        clearInterval(interval);
-        setPaying(false);
-        setPayError('Le paiement prend plus de temps que prévu. Vérifiez votre téléphone.');
-      }
-    }, 3000);
   }
 
   function celebrateAndFinish() {
@@ -368,18 +303,10 @@ export default function App() {
           )}
           {step === 11 && userType === 'etudiant' && (
             <Step11StudentPayment
-              paymentMode={paymentMode}
-              setPaymentMode={setPaymentMode}
-              payPhone={payPhone}
-              setPayPhone={setPayPhone}
-              payMethod={payMethod}
-              setPayMethod={setPayMethod}
               paymentProof={paymentProof}
               setPaymentProof={setPaymentProof}
               paying={paying}
-              payStatus={payStatus}
               payError={payError}
-              onOnlinePay={handleOnlinePay}
               onCashSubmit={handleCashSubmit}
               onBack={() => goToStep(10)}
             />
@@ -394,7 +321,7 @@ export default function App() {
               setPayMethod={setPayMethod}
               paying={paying}
               payError={payError}
-              onPay={handleDonorDonate}
+              onPay={handleDonorPledge}
               onBack={() => goToStep(10)}
             />
           )}
@@ -402,7 +329,7 @@ export default function App() {
             <Step12StudentSuccess completedAs={completedAs} />
           )}
           {step === 12 && userType === 'donateur' && (
-            <Step12DonorSuccess amount={amount} />
+            <Step12DonorSuccess amount={amount} payPhone={payPhone} payMethod={payMethod} />
           )}
         </div>
       </div>
@@ -852,10 +779,30 @@ function Step10Donor({ form, setForm, errors, payError, onSubmit, onBack, clearE
 
 /* ---------------- Step 11 : paiements ---------------- */
 
+function PaymentNumbersBox() {
+  return (
+    <div className="payment-numbers-box">
+      <p className="payment-numbers-title">Numéros officiels pour votre paiement</p>
+      <p className="payment-numbers-lede">
+        Effectuez votre virement mobile sur l&apos;un des comptes ci-dessous,
+        puis joignez une capture ou photo du reçu pour valider votre inscription.
+      </p>
+      <div className="payment-number-row">
+        <span className="payment-provider">🟠 Orange Money</span>
+        <span className="payment-number">691 179 488</span>
+        <span className="payment-holder">Isabelle Danielle</span>
+      </div>
+      <div className="payment-number-row">
+        <span className="payment-provider">🟡 MTN MoMo</span>
+        <span className="payment-number">675 086 799</span>
+        <span className="payment-holder">Yambone Franck</span>
+      </div>
+    </div>
+  );
+}
+
 function Step11StudentPayment({
-  paymentMode, setPaymentMode, payPhone, setPayPhone, payMethod, setPayMethod,
-  paymentProof, setPaymentProof, paying, payStatus, payError,
-  onOnlinePay, onCashSubmit, onBack,
+  paymentProof, setPaymentProof, paying, payError, onCashSubmit, onBack,
 }) {
   return (
     <>
@@ -868,85 +815,26 @@ function Step11StudentPayment({
         <strong>{STUDENT_FEE.toLocaleString('fr-FR')} FCFA</strong>
       </div>
 
-      <div className="payment-mode-tabs">
-        <button
-          type="button"
-          className={`mode-tab ${paymentMode === 'en_ligne' ? 'active' : ''}`}
-          onClick={() => setPaymentMode('en_ligne')}
-        >
-          <CreditCard size={18} /> Paiement en ligne
-        </button>
-        <button
-          type="button"
-          className={`mode-tab ${paymentMode === 'especes' ? 'active' : ''}`}
-          onClick={() => setPaymentMode('especes')}
-        >
-          <Banknote size={18} /> Paiement en espèces
+      <PaymentNumbersBox />
+
+      <div className="form-block">
+        <div className="form-field">
+          <label><Upload size={14} /> Preuve de paiement (photo ou PDF)</label>
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
+            className="file-input"
+          />
+          {paymentProof && <p className="file-name">{paymentProof.name}</p>}
+        </div>
+      </div>
+      {payError && <div className="field-error" style={{ marginBottom: 14 }}>{payError}</div>}
+      <div className="btn-row">
+        <button className="btn btn-primary" onClick={onCashSubmit} disabled={paying}>
+          {paying ? 'Envoi…' : 'Soumettre la preuve'}
         </button>
       </div>
-
-      {paymentMode === 'en_ligne' ? (
-        <>
-          <p className="lede">Payez via Orange Money ou MTN MoMo (Taramoney). Le montant est unique : {STUDENT_FEE.toLocaleString('fr-FR')} FCFA.</p>
-          <div className="fee-badge" style={{ marginBottom: 18 }}>
-            <span>Montant unique</span>
-            <strong>{STUDENT_FEE.toLocaleString('fr-FR')} FCFA</strong>
-          </div>
-          <div className="form-block">
-            <div className="form-field">
-              <label>Numéro pour le paiement</label>
-              <input value={payPhone} onChange={(e) => setPayPhone(e.target.value)} placeholder="+237 6XX XXX XXX" />
-            </div>
-          </div>
-          <div className="payment-methods" style={{ marginBottom: 22 }}>
-            <div className={`method-pill ${payMethod === 'orange' ? 'active' : ''}`} onClick={() => setPayMethod('orange')}>
-              🟠 Orange Money
-            </div>
-            <div className={`method-pill ${payMethod === 'mtn' ? 'active' : ''}`} onClick={() => setPayMethod('mtn')}>
-              🟡 MTN MoMo
-            </div>
-          </div>
-          {payError && <div className="field-error" style={{ marginBottom: 14 }}>{payError}</div>}
-          <div className="btn-row">
-            <button className="btn btn-gold" onClick={onOnlinePay} disabled={paying}>
-              {paying ? 'Vérification…' : `Payer ${STUDENT_FEE.toLocaleString('fr-FR')} FCFA`}
-            </button>
-          </div>
-          {payStatus === 'PENDING' && (
-            <p className="amount-hint" style={{ marginTop: 14 }}>
-              Validez la demande reçue sur votre téléphone.
-            </p>
-          )}
-        </>
-      ) : (
-        <>
-          <p className="lede">
-            Effectuez le paiement en espèces auprès d'un responsable ASSERES, puis joignez une photo du reçu.
-          </p>
-          <div className="cash-info-box">
-            <p><strong>Montant :</strong> {STUDENT_FEE.toLocaleString('fr-FR')} FCFA</p>
-            <p>Votre inscription sera validée après vérification de la preuve par l'équipe ASSERES.</p>
-          </div>
-          <div className="form-block">
-            <div className="form-field">
-              <label><Upload size={14} /> Preuve de paiement (photo ou PDF)</label>
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
-                className="file-input"
-              />
-              {paymentProof && <p className="file-name">{paymentProof.name}</p>}
-            </div>
-          </div>
-          {payError && <div className="field-error" style={{ marginBottom: 14 }}>{payError}</div>}
-          <div className="btn-row">
-            <button className="btn btn-primary" onClick={onCashSubmit} disabled={paying}>
-              {paying ? 'Envoi…' : 'Soumettre la preuve'}
-            </button>
-          </div>
-        </>
-      )}
     </>
   );
 }
@@ -959,11 +847,11 @@ function Step11DonorPayment({
   return (
     <>
       <StepBack onBack={onBack} />
-      <span className="eyebrow"><HeartHandshake size={13} /> Votre don</span>
-      <h1 className="headline">Choisissez votre contribution</h1>
+      <span className="eyebrow">Engagement de don</span>
+      <h1 className="headline">Votre don</h1>
       <p className="lede">
-        Indiquez le montant souhaité et votre moyen de paiement préféré.
-        Notre trésorière vous contactera pour finaliser le règlement.
+        Choisissez le montant de votre générosité. Notre trésorière vous contactera
+        pour finaliser le paiement.
       </p>
 
       <GoalThermometer />
@@ -988,7 +876,7 @@ function Step11DonorPayment({
 
       <div className="form-block form-block-minimal">
         <div className="form-field">
-          <label>Numéro pour le paiement mobile</label>
+          <label>Numéro pour vous contacter</label>
           <input value={payPhone} onChange={(e) => setPayPhone(e.target.value)} placeholder="+237 6XX XXX XXX" />
         </div>
       </div>
@@ -1032,26 +920,21 @@ function Step12StudentSuccess({ completedAs }) {
   );
 }
 
-function Step12DonorSuccess({ amount }) {
+function Step12DonorSuccess({ amount, payPhone, payMethod }) {
+  const methodLabel = payMethod === 'mtn' ? 'MTN MoMo' : 'Orange Money';
   return (
     <>
       <div className="thanks-icon"><HeartHandshake size={54} strokeWidth={1.6} color="var(--red)" /></div>
       <h1 className="headline">Merci pour votre générosité</h1>
       <p className="lede">
-        Votre intention de don de <strong>{amount.toLocaleString('fr-FR')} FCFA</strong> a bien été
-        enregistrée. Nous vous remercions chaleureusement pour votre soutien envers la campagne
-        BOUAN&apos;O DOUMAINTANG et les populations de l&apos;Est.
+        Votre engagement de don de <strong>{amount.toLocaleString('fr-FR')} FCFA</strong> a bien
+        été enregistré. Notre trésorière vous contactera très prochainement au numéro{' '}
+        <strong>{payPhone}</strong> pour finaliser le paiement via <strong>{methodLabel}</strong>.
       </p>
-      <div className="cash-info-box" style={{ marginTop: 24, textAlign: 'left' }}>
-        <p>
-          <strong>Prochaine étape :</strong> notre trésorière vous contactera très prochainement
-          au numéro indiqué afin de convenir avec vous des modalités pratiques du paiement
-          (Orange Money ou MTN MoMo).
-        </p>
-        <p style={{ marginTop: 12, marginBottom: 0 }}>
-          Votre engagement compte énormément pour nous. À très bientôt.
-        </p>
-      </div>
+      <p className="lede" style={{ marginTop: 16 }}>
+        Grâce à vous, nous pouvons continuer à apporter soin et espoir aux populations
+        de Doumaintang. Toute l&apos;équipe ASSERES vous adresse ses sincères remerciements.
+      </p>
     </>
   );
 }

@@ -59,15 +59,6 @@ export async function createDonorRegistration(payload) {
   return data;
 }
 
-export async function submitDonationPledge(contributionId, amount, phone, method) {
-  const { data } = await api.post(`/contributions/${contributionId}/submit-donation/`, {
-    amount,
-    phone,
-    method,
-  });
-  return data;
-}
-
 export async function initiatePayment(contributionId, amount, phone, method) {
   const { data } = await api.post(`/contributions/${contributionId}/pay/`, {
     amount,
@@ -84,6 +75,15 @@ export async function getPaymentStatus(contributionId) {
 
 export async function confirmCashPayment(contributionId) {
   const { data } = await api.post(`/contributions/${contributionId}/confirm-cash/`);
+  return data;
+}
+
+export async function confirmDonorPledge(contributionId, amount, phone, method) {
+  const { data } = await api.post(`/contributions/${contributionId}/confirm-donor/`, {
+    amount,
+    phone,
+    method,
+  });
   return data;
 }
 
