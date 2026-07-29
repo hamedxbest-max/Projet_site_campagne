@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Stethoscope, HeartHandshake, GraduationCap, Users,
-  ShieldCheck, Upload, ArrowLeft,
+  ShieldCheck, Upload, ArrowLeft, Smartphone, FileCheck,
 } from 'lucide-react';
 import SunProgress from './components/SunProgress.jsx';
 import CountdownTimer from './components/CountdownTimer.jsx';
@@ -779,24 +779,92 @@ function Step10Donor({ form, setForm, errors, payError, onSubmit, onBack, clearE
 
 /* ---------------- Step 11 : paiements ---------------- */
 
+const PAYMENT_ACCOUNTS = [
+  {
+    id: 'orange',
+    provider: 'Orange Money',
+    number: '691 179 488',
+    holder: 'Isabelle Danielle',
+    brandClass: 'payment-coord-brand-orange',
+  },
+  {
+    id: 'mtn',
+    provider: 'MTN MoMo',
+    number: '675 086 799',
+    holder: 'Yambone Franck',
+    brandClass: 'payment-coord-brand-mtn',
+  },
+];
+
 function PaymentNumbersBox() {
   return (
-    <div className="payment-numbers-box">
-      <p className="payment-numbers-title">Numéros officiels pour votre paiement</p>
-      <p className="payment-numbers-lede">
-        Effectuez votre virement mobile sur l&apos;un des comptes ci-dessous,
-        puis joignez une capture ou photo du reçu pour valider votre inscription.
+    <section className="payment-coords-card" aria-label="Coordonnées de paiement mobile">
+      <div className="payment-coords-header">
+        <div className="payment-coords-icon" aria-hidden="true">
+          <Smartphone size={22} strokeWidth={1.8} />
+        </div>
+        <div>
+          <p className="payment-coords-eyebrow">Coordonnées officielles</p>
+          <h2 className="payment-coords-title">Effectuez votre paiement mobile</h2>
+        </div>
+      </div>
+      <p className="payment-coords-lede">
+        Transférez <strong>{STUDENT_FEE.toLocaleString('fr-FR')} FCFA</strong> sur l&apos;un des
+        comptes ci-dessous, puis joignez une capture ou photo du reçu.
       </p>
-      <div className="payment-number-row">
-        <span className="payment-provider">🟠 Orange Money</span>
-        <span className="payment-number">691 179 488</span>
-        <span className="payment-holder">Isabelle Danielle</span>
-      </div>
-      <div className="payment-number-row">
-        <span className="payment-provider">🟡 MTN MoMo</span>
-        <span className="payment-number">675 086 799</span>
-        <span className="payment-holder">Yambone Franck</span>
-      </div>
+      <ul className="payment-coords-list">
+        {PAYMENT_ACCOUNTS.map((account) => (
+          <li key={account.id} className={`payment-coord-item ${account.brandClass}`}>
+            <span className="payment-coord-provider">{account.provider}</span>
+            <span className="payment-coord-number">{account.number}</span>
+            <span className="payment-coord-holder">
+              <span className="payment-coord-holder-label">Titulaire</span>
+              {account.holder}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ProofUpload({ file, onChange }) {
+  const inputRef = useRef(null);
+
+  return (
+    <div className="proof-upload">
+      <p className="proof-upload-label">Preuve de paiement</p>
+      <p className="proof-upload-hint">Photo ou PDF du reçu de votre transaction mobile</p>
+      <button
+        type="button"
+        className={`proof-upload-zone${file ? ' has-file' : ''}`}
+        onClick={() => inputRef.current?.click()}
+      >
+        {file ? (
+          <>
+            <span className="proof-upload-icon proof-upload-icon-success">
+              <FileCheck size={22} strokeWidth={1.8} />
+            </span>
+            <span className="proof-upload-filename">{file.name}</span>
+            <span className="proof-upload-action">Changer de fichier</span>
+          </>
+        ) : (
+          <>
+            <span className="proof-upload-icon">
+              <Upload size={22} strokeWidth={1.8} />
+            </span>
+            <span className="proof-upload-cta">Cliquez pour ajouter votre reçu</span>
+            <span className="proof-upload-formats">JPG, PNG ou PDF</span>
+          </>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,.pdf"
+        className="proof-upload-input"
+        onChange={(e) => onChange(e.target.files?.[0] || null)}
+      />
     </div>
   );
 }
@@ -817,17 +885,8 @@ function Step11StudentPayment({
 
       <PaymentNumbersBox />
 
-      <div className="form-block">
-        <div className="form-field">
-          <label><Upload size={14} /> Preuve de paiement (photo ou PDF)</label>
-          <input
-            type="file"
-            accept="image/*,.pdf"
-            onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
-            className="file-input"
-          />
-          {paymentProof && <p className="file-name">{paymentProof.name}</p>}
-        </div>
+      <div className="form-block form-block-minimal proof-upload-block">
+        <ProofUpload file={paymentProof} onChange={setPaymentProof} />
       </div>
       {payError && <div className="field-error" style={{ marginBottom: 14 }}>{payError}</div>}
       <div className="btn-row">

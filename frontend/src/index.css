@@ -335,10 +335,9 @@ h1.headline .accent {
 }
 .btn-gold:hover { box-shadow: 0 20px 36px -12px rgba(212,167,44,0.65); }
 .btn-outline {
-  background: rgba(255,255,255,0.6);
+  background: var(--white);
   color: var(--navy);
   border: 1.5px solid rgba(15,42,71,0.25);
-  backdrop-filter: blur(6px);
 }
 .btn-outline:hover { border-color: var(--navy); background: var(--white); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
@@ -612,7 +611,8 @@ h1.headline .accent {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(0deg, var(--cream) 60%, rgba(251,248,241,0));
+  background: var(--cream);
+  border-top: 1px solid rgba(15,42,71,0.1);
   z-index: 6;
 }
 
@@ -902,6 +902,249 @@ h1.headline .accent {
   color: var(--ink);
 }
 .cash-info-box p { margin: 0 0 6px; }
+
+/* ---------- Payment coordinates (Step 11) ---------- */
+.payment-coords-card {
+  background: var(--white);
+  border: 1px solid rgba(15,42,71,0.1);
+  border-radius: var(--radius);
+  padding: 24px 22px;
+  text-align: left;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.payment-coords-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.payment-coords-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(27,77,62,0.12), rgba(212,167,44,0.14));
+  color: var(--green-deep);
+}
+
+.payment-coords-eyebrow {
+  margin: 0 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green-mid);
+  font-weight: 600;
+}
+
+.payment-coords-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 4vw, 24px);
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--navy);
+}
+
+.payment-coords-lede {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.payment-coords-lede strong {
+  color: var(--green-deep);
+  font-weight: 700;
+}
+
+.payment-coords-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-coord-item {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  padding: 16px 18px 16px 20px;
+  background: var(--cream);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(15,42,71,0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.payment-coord-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.payment-coord-brand-orange::before {
+  background: linear-gradient(180deg, #FF7900, #E86A00);
+}
+
+.payment-coord-brand-mtn::before {
+  background: linear-gradient(180deg, #FFCC00, #E6B800);
+}
+
+.payment-coord-provider {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.payment-coord-brand-orange .payment-coord-provider { color: #C45A00; }
+.payment-coord-brand-mtn .payment-coord-provider { color: #9A7200; }
+
+.payment-coord-number {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 5vw, 28px);
+  letter-spacing: 0.04em;
+  color: var(--navy);
+  line-height: 1.1;
+}
+
+.payment-coord-holder {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.payment-coord-holder-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* ---------- Proof upload zone ---------- */
+.proof-upload-block {
+  padding: 22px !important;
+  margin-bottom: 8px;
+}
+
+.proof-upload-label {
+  margin: 0 0 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+.proof-upload-hint {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.proof-upload-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.proof-upload-zone {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 28px 20px;
+  border-radius: var(--radius-sm);
+  border: 2px dashed rgba(15,42,71,0.18);
+  background: var(--cream);
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  font-family: inherit;
+  text-align: center;
+}
+
+.proof-upload-zone:hover {
+  border-color: var(--green-mid);
+  background: rgba(27,77,62,0.04);
+  box-shadow: 0 0 0 4px rgba(27,77,62,0.06);
+}
+
+.proof-upload-zone.has-file {
+  border-style: solid;
+  border-color: rgba(27,77,62,0.25);
+  background: rgba(27,77,62,0.05);
+}
+
+.proof-upload-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--green-mid);
+  box-shadow: 0 4px 12px rgba(15,42,71,0.08);
+  margin-bottom: 4px;
+}
+
+.proof-upload-icon-success {
+  background: linear-gradient(135deg, var(--green-mid), var(--green-bright));
+  color: var(--white);
+}
+
+.proof-upload-cta {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.proof-upload-formats {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.proof-upload-filename {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green-deep);
+  word-break: break-all;
+  max-width: 100%;
+}
+
+.proof-upload-action {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--green-mid);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .file-input {
   width: 100%;
   padding: 12px;
