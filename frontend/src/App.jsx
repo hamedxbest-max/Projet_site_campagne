@@ -226,7 +226,7 @@ export default function App() {
       celebrateAndFinish();
     } catch (err) {
       setPaying(false);
-      setPayError(formatApiError(err) || 'Enregistrement impossible. Réessayez.');
+      setPayError(formatApiError(err));
     }
   }
 
@@ -243,9 +243,9 @@ export default function App() {
       setCompletedAs('cash');
       setPaying(false);
       celebrateAndFinish();
-    } catch {
+    } catch (err) {
       setPaying(false);
-      setPayError('Envoi impossible. Vérifiez la connexion au serveur.');
+      setPayError(formatApiError(err));
     }
   }
 

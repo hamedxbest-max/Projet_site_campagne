@@ -11,6 +11,7 @@ import {
   getCampaignStats,
   LIVE_POLL_MS,
 } from '../api/client.js';
+import { formatApiError } from '../utils/formErrors.js';
 import LiveIndicator from '../components/LiveIndicator.jsx';
 import './admin.css';
 
@@ -93,8 +94,8 @@ export default function AdminDashboard() {
       const { data } = await api.post('/auth/token/', { username, password });
       localStorage.setItem('bouano_admin_token', data.access);
       setToken(data.access);
-    } catch {
-      setLoginError('Identifiants incorrects.');
+    } catch (err) {
+      setLoginError(formatApiError(err, 'Identifiants incorrects.'));
     }
   }
 

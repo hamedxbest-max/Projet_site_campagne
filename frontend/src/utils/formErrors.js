@@ -37,14 +37,24 @@ export function parseApiFieldErrors(data) {
   return errors;
 }
 
-export function formatApiError(err, fallback = 'Une erreur est survenue. Réessayez.') {
+export const NETWORK_ERROR_MESSAGE =
+  'Connexion impossible. Vérifiez votre connexion internet et réessayez.';
+
+export const SERVER_ERROR_MESSAGE =
+  'Le service est momentanément indisponible. Veuillez réessayer dans quelques instants.';
+
+export function isNetworkError(err) {
+  return !err?.response;
+}
+
+export function formatApiError(err, fallback = 'Une erreur est survenue. Veuillez réessayer.') {
   const data = err?.response?.data;
   if (!data) {
-    if (!err?.response) {
-      return 'Impossible de joindre le backend. Vérifiez votre connexion ou réessayez dans un instant.';
+    if (isNetworkError(err)) {
+      return NETWORK_ERROR_MESSAGE;
     }
     if (err?.response?.status >= 500) {
-      return 'Erreur serveur. Si vous avez joint une photo, réessayez sans photo ou plus tard.';
+      return SERVER_ERROR_MESSAGE;
     }
     return fallback;
   }
