@@ -88,6 +88,35 @@ class ContributionViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=['post'], url_path='submit-donation')
+    def submit_donation(self, request, pk=None):
+        """Enregistre l'intention de don (sans paiement en ligne). Validation admin requise."""
+        contribution = self.get_object()
+        if contribution.contributor_type != 'donateur':
+            return Response(
+                {'detail': 'Réservé aux donateurs.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = PaymentRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        amount = serializer.validated_data['amount']
+        phone = serializer.validated_data['phone']
+        method = serializer.validated_data['method']
+        min_amount = min(getattr(settings, 'MINIMUM_CONTRIBUTION_AMOUNT', 1000), 1000)
+        if amount < min_amount:
+            return Response(
+                {'detail': f'Le montant minimum est de {min_amount} FCFA.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        contribution.amount = amount
+        contribution.telephone = phone.strip()
+        contribution.payment_method = method
+        contribution.mode_paiement = 'en_ligne'
+        contribution.payment_status = 'PENDING'
+        contribution.amount_paid = 0
+        contribution.save()
+        return Response(ContributionSerializer(contribution).data)
+
     @action(detail=True, methods=['post'])
     def pay(self, request, pk=None):
         contribution = self.get_object()
@@ -219,12 +248,16 @@ class ContributionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='validate-payment')
     def validate_payment(self, request, pk=None):
-        """Valide manuellement un paiement (espèces ou en ligne en attente)."""
+        """Valide manuellement un paiement (espèces, don en attente, etc.)."""
         contribution = self.get_object()
         if contribution.payment_status == 'SUCCESSFUL':
             return Response({'detail': 'Déjà validé.'}, status=status.HTTP_400_BAD_REQUEST)
         if not contribution.amount:
             contribution.amount = STUDENT_FEE if contribution.contributor_type == 'etudiant' else contribution.amount
+        if contribution.contributor_type == 'donateur' and contribution.amount:
+            contribution.amount_paid = contribution.amount
+        elif contribution.contributor_type == 'etudiant' and not contribution.amount_paid:
+            contribution.amount_paid = contribution.amount or STUDENT_FEE
         contribution.payment_status = 'SUCCESSFUL'
         contribution.save()
         return Response(ContributionSerializer(contribution).data)

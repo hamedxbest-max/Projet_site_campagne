@@ -23,6 +23,7 @@ import {
 import {
   createStudentRegistration,
   createDonorRegistration,
+  submitDonationPledge,
   initiatePayment,
   getPaymentStatus,
   confirmCashPayment,
@@ -211,6 +212,29 @@ export default function App() {
     }
   }
 
+  async function handleDonorDonate() {
+    setPayError('');
+    if (amount < MIN_DONATION) {
+      setPayError(`Montant minimum : ${MIN_DONATION.toLocaleString('fr-FR')} FCFA.`);
+      return;
+    }
+    if (!/^\+?[0-9]{8,15}$/.test(payPhone.trim())) {
+      setPayError('Numéro de téléphone invalide.');
+      return;
+    }
+
+    setPaying(true);
+    try {
+      await submitDonationPledge(contributionId, amount, payPhone, payMethod);
+      setCompletedAs('pledge');
+      celebrateAndFinish();
+    } catch (err) {
+      setPayError(formatApiError(err));
+    } finally {
+      setPaying(false);
+    }
+  }
+
   async function handleOnlinePay() {
     setPayError('');
     const payAmt = userType === 'etudiant' ? STUDENT_FEE : amount;
@@ -369,9 +393,8 @@ export default function App() {
               payMethod={payMethod}
               setPayMethod={setPayMethod}
               paying={paying}
-              payStatus={payStatus}
               payError={payError}
-              onPay={handleOnlinePay}
+              onPay={handleDonorDonate}
               onBack={() => goToStep(10)}
             />
           )}
@@ -930,15 +953,18 @@ function Step11StudentPayment({
 
 function Step11DonorPayment({
   amount, setAmount, payPhone, setPayPhone, payMethod, setPayMethod,
-  paying, payStatus, payError, onPay, onBack,
+  paying, payError, onPay, onBack,
 }) {
   const presets = [25000, 50000, 100000];
   return (
     <>
       <StepBack onBack={onBack} />
-      <span className="eyebrow">Paiement sécurisé · Taramoney</span>
-      <h1 className="headline">Votre don</h1>
-      <p className="lede">Montant minimum : {MIN_DONATION.toLocaleString('fr-FR')} FCFA</p>
+      <span className="eyebrow"><HeartHandshake size={13} /> Votre don</span>
+      <h1 className="headline">Choisissez votre contribution</h1>
+      <p className="lede">
+        Indiquez le montant souhaité et votre moyen de paiement préféré.
+        Notre trésorière vous contactera pour finaliser le règlement.
+      </p>
 
       <GoalThermometer />
 
@@ -980,14 +1006,9 @@ function Step11DonorPayment({
 
       <div className="btn-row">
         <button className="btn btn-gold" onClick={onPay} disabled={paying}>
-          {paying ? 'Vérification…' : `Donner ${amount.toLocaleString('fr-FR')} FCFA`}
+          {paying ? 'Enregistrement…' : `Donner ${amount.toLocaleString('fr-FR')} FCFA`}
         </button>
       </div>
-      {payStatus === 'PENDING' && (
-        <p className="amount-hint" style={{ marginTop: 14 }}>
-          Validez la demande reçue sur votre téléphone.
-        </p>
-      )}
     </>
   );
 }
@@ -1015,11 +1036,22 @@ function Step12DonorSuccess({ amount }) {
   return (
     <>
       <div className="thanks-icon"><HeartHandshake size={54} strokeWidth={1.6} color="var(--red)" /></div>
-      <h1 className="headline">Merci pour votre don ❗</h1>
+      <h1 className="headline">Merci pour votre générosité</h1>
       <p className="lede">
-        Votre contribution de <strong>{amount.toLocaleString('fr-FR')} FCFA</strong> fait la différence
-        pour les populations de Doumaintang.
+        Votre intention de don de <strong>{amount.toLocaleString('fr-FR')} FCFA</strong> a bien été
+        enregistrée. Nous vous remercions chaleureusement pour votre soutien envers la campagne
+        BOUAN&apos;O DOUMAINTANG et les populations de l&apos;Est.
       </p>
+      <div className="cash-info-box" style={{ marginTop: 24, textAlign: 'left' }}>
+        <p>
+          <strong>Prochaine étape :</strong> notre trésorière vous contactera très prochainement
+          au numéro indiqué afin de convenir avec vous des modalités pratiques du paiement
+          (Orange Money ou MTN MoMo).
+        </p>
+        <p style={{ marginTop: 12, marginBottom: 0 }}>
+          Votre engagement compte énormément pour nous. À très bientôt.
+        </p>
+      </div>
     </>
   );
 }

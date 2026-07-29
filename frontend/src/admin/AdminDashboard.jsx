@@ -55,6 +55,12 @@ function TypeBadge({ type }) {
 }
 
 function modeLabel(row) {
+  if (row.contributor_type === 'donateur') {
+    if (row.payment_method === 'orange') return 'Orange Money';
+    if (row.payment_method === 'mtn') return 'MTN MoMo';
+    if (row.methode_preferee === 'orange') return 'Orange Money';
+    if (row.methode_preferee === 'mtn') return 'MTN MoMo';
+  }
   if (row.mode_paiement === 'especes') return 'Espèces';
   if (row.mode_paiement === 'en_ligne') return 'En ligne';
   if (row.methode_preferee === 'orange') return 'Orange Money';
@@ -403,14 +409,20 @@ export default function AdminDashboard() {
                             >
                               Télécharger les détails
                             </button>
-                            {r.mode_paiement === 'especes' && r.payment_status === 'PENDING' && (
+                            {r.payment_status === 'PENDING' && (
+                              r.mode_paiement === 'especes' || r.contributor_type === 'donateur'
+                            ) && (
                               <button
                                 type="button"
                                 className="admin-detail-button admin-detail-button-primary"
                                 disabled={processingId === r.id}
                                 onClick={() => handleValidateCashPayment(r.id)}
                               >
-                                {processingId === r.id ? 'Validation...' : 'Valider paiement en espèces'}
+                                {processingId === r.id
+                                  ? 'Validation...'
+                                  : r.contributor_type === 'donateur'
+                                    ? 'Confirmer réception du don'
+                                    : 'Valider paiement en espèces'}
                               </button>
                             )}
                           </div>
