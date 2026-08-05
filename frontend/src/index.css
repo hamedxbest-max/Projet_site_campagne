@@ -1424,3 +1424,63 @@ h1.headline .accent {
   transition: transform 0.2s var(--ease);
 }
 .share-btn:hover { transform: translateY(-2px); }
+
+/* ---------- Server wake (Render cold start) ---------- */
+.server-wake-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(212,167,44,0.12), transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(27,77,62,0.14), transparent 50%),
+    var(--cream);
+}
+
+.server-wake-card {
+  width: min(420px, 100%);
+  padding: 32px 28px;
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: 0 18px 40px -24px rgba(15,42,71,0.35);
+  text-align: center;
+}
+
+.server-wake-spinner {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 18px;
+  border: 3px solid rgba(27,77,62,0.15);
+  border-top-color: var(--green-mid);
+  border-radius: 50%;
+  animation: server-wake-spin 0.9s linear infinite;
+}
+
+@keyframes server-wake-spin {
+  to { transform: rotate(360deg); }
+}
+
+.server-wake-title {
+  font-size: 1.35rem;
+  margin: 0 0 10px;
+  color: var(--navy);
+}
+
+.server-wake-text,
+.server-wake-attempt {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.server-wake-attempt {
+  margin-top: 12px;
+  font-weight: 600;
+  color: var(--green-mid);
+}
+
+.server-wake-retry {
+  margin-top: 20px;
+}

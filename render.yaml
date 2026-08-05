@@ -8,6 +8,7 @@ services:
     region: oregon
     branch: main
     plan: free
+    healthCheckPath: /api/health/
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: bouano.settings
@@ -33,5 +34,7 @@ databases:
 # - After importing this manifest in Render, set the environment variables for the backend
 #   (DJANGO_SECRET_KEY, DEBUG=False, DATABASE_URL, CAMPAY_*, CORS_ALLOWED_ORIGINS, etc.)
 # - For media storage, prefer Cloudinary or S3; set related env vars (e.g. CLOUDINARY_URL).
-# - Update 'region' to your preferred Render region.
+# - Region cannot be changed on an existing Render service (keep oregon unless recreating).
+# - Keep the server awake on Render free tier: UptimeRobot GET every 5 min on
+#   https://<your-backend-host>/api/health/ (Monitor type: HTTP(s), interval 5 min).
 # - The static site build uses the frontend folder; Render will serve the generated files.

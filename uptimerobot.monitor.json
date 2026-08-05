@@ -1,0 +1,10 @@
+{
+  "monitor": {
+    "friendly_name": "BOUAN'O DOUMAINTANG — API health",
+    "url": "https://projet-site-campagne.onrender.com/api/health/",
+    "type": "HTTP(s)",
+    "interval_minutes": 5,
+    "expected_status": 200,
+    "notes": "Keeps Render free tier awake. Create manually at https://uptimerobot.com — this file is reference only."
+  }
+}

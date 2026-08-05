@@ -33,8 +33,8 @@ export function authHeaders(token) {
   return { Authorization: `Bearer ${token}` };
 }
 
-export async function checkApiHealth() {
-  const { data } = await api.get('/health/');
+export async function checkApiHealth({ timeoutMs = 90000 } = {}) {
+  const { data } = await api.get('/health/', { timeout: timeoutMs });
   return data;
 }
 
